@@ -1,0 +1,57 @@
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+
+# Load dataset
+df = pd.read_csv("tested.csv")
+
+# Handle missing values
+df['Age'].fillna(df['Age'].median(), inplace=True)
+df['Fare'].fillna(df['Fare'].median(), inplace=True)
+df['HasCabin'] = df['Cabin'].notna().astype(int)
+df.drop(columns=['Cabin'], inplace=True)
+
+# Feature Engineering
+df['Title'] = df['Name'].str.extract(' ([A-Za-z]+)\\.', expand=False)
+title_replacements = {'Mlle': 'Miss', 'Ms': 'Miss', 'Mme': 'Mrs',
+                      'Lady': 'Royalty', 'Countess': 'Royalty', 'Dona': 'Royalty',
+                      'Capt': 'Officer', 'Col': 'Officer', 'Major': 'Officer', 'Dr': 'Officer', 'Rev': 'Officer', 'Sir': 'Royalty', 'Jonkheer': 'Royalty'}
+df['Title'] = df['Title'].replace(title_replacements)
+df['FamilySize'] = df['SibSp'] + df['Parch'] + 1
+df.drop(columns=['Name', 'Ticket'], inplace=True)
+
+# Encode categorical variables
+df['Sex'] = df['Sex'].map({'male': 0, 'female': 1})
+df = pd.get_dummies(df, columns=['Embarked', 'Title'], drop_first=True)
+
+# Normalize numerical features
+num_features = ['Age', 'Fare', 'FamilySize']
+scaler = StandardScaler()
+df[num_features] = scaler.fit_transform(df[num_features])
+
+# Define features and target variable
+X = df.drop(columns=['PassengerId', 'Survived'])
+y = df['Survived']
+
+# Split into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+# Train Random Forest model
+rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
+rf_model.fit(X_train, y_train)
+
+# Make predictions
+y_pred_rf = rf_model.predict(X_test)
+
+# Evaluate model performance
+metrics = {
+    "Accuracy": accuracy_score(y_test, y_pred_rf),
+    "Precision": precision_score(y_test, y_pred_rf),
+    "Recall": recall_score(y_test, y_pred_rf),
+    "F1 Score": f1_score(y_test, y_pred_rf)
+}
+
+print("Model Performance:", metrics)
